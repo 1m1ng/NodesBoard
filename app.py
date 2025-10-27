@@ -2,14 +2,14 @@ from quart import Quart
 from quart_cors import cors
 import socketio
 import asyncio
-from routes import auth_bp
+from routes import auth_bp, users_bp
 from tortoise.contrib.quart import register_tortoise
 import os
 from models import User
 import random
 import string
 import uvicorn
-from utils import crypt_password, get_logger, Config, Redis
+from utils import crypt_password, get_logger, Config
 
 logger = get_logger(__name__)
 
@@ -21,7 +21,8 @@ def create_app() -> socketio.ASGIApp:
 
     # 注册蓝图
     app.register_blueprint(auth_bp)
-    
+    app.register_blueprint(users_bp)
+
     if not os.path.exists('data'):
         os.makedirs('data')
     # 配置数据库

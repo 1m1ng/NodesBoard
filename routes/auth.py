@@ -1,9 +1,10 @@
-from quart import Blueprint, request
+from quart import Blueprint, request, g
 import time
 from utils.config import Config
 from models import User
-from utils import decrypt_password, generate_token, get_logger, Response, decode_token, Redis
+from utils import decrypt_password, generate_token, get_logger, Response, Redis, crypt_password
 import redis.asyncio
+from decorators import logged
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -19,11 +20,9 @@ async def login():
         if not data:
             return Response.error("请求数据错误", 400)
     email = data.get('email')
-    if not email:
-        return Response.error("邮箱不能为空", 400)
     password = data.get('password')
-    if not password:
-        return Response.error("密码不能为空", 400)
+    if not email or not password:
+        return Response.error("邮箱和密码不能为空", 400)
     ip = request.remote_addr
     if not ip:
         return Response.error("无法获取客户端IP地址", 400)
@@ -72,28 +71,52 @@ async def login():
         logger.error(f"Redis错误: {str(e)}")
         return Response.error("服务器内部错误", 500)
     
-@auth_bp.route('/logout')
+@auth_bp.route('/logout', methods=['GET', 'POST'])
+@logged
 async def logout():
     try:
-        token = request.headers.get('Authorization')
-        if not token:
-            raise
-        if token.startswith("Bearer "):
-            token = token[7:]
-        else:
-            raise
-        payload = decode_token(token)
-        if not payload:
-            raise
-        email = payload.get('email')
-        if not email or await cache.get(f"token:{email}") != token:
-            raise
-
-        await cache.delete(f"token:{email}")
-        logger.info(f"用户 {email} 已注销")
+        await cache.delete(f"token:{g.user['email']}")
+        logger.info(f"用户 {g.user['email']} 已注销")
         return Response.success("注销成功")
-    except redis.asyncio.RedisError as e:
-        logger.error(f"Redis错误: {str(e)}")
-        return Response.error("服务器内部错误", 500)
     except Exception as e:
-        return Response.error("无效或过期的令牌", 401)
+        logger.error(f"注销错误: {str(e)}")
+        return Response.error("服务器内部错误", 500)
+
+@auth_bp.route('/change_password', methods=['POST'])
+@logged
+async def change_password():
+    data = await request.get_json()
+    if not data:
+        data = await request.form
+        if not data:
+            return Response.error("请求数据错误", 400)
+    
+    old_password = data.get('old_password')
+    new_password = data.get('new_password')
+    
+    if not old_password or not new_password:
+        return Response.error("旧密码和新密码不能为空", 400)
+    
+    if old_password == new_password:
+        return Response.error("新密码不能与旧密码相同", 400)
+    
+    if len(new_password) < 8:
+        return Response.error("新密码长度不能少于8个字符", 400)
+    
+    try:
+        user = await User.get_or_none(id=g.user['user_id'])
+        if not user:
+            return Response.error("用户不存在", 404)
+        
+        if decrypt_password(user.password) != old_password:
+            return Response.error("旧密码错误", 401)
+        
+        user.password = crypt_password(new_password)
+        await user.save()
+        
+        await cache.delete(f"token:{user.email}")
+        logger.info(f"用户 {user.email} 修改了密码")
+        return Response.success("密码修改成功，请重新登录。")
+    except Exception as e:
+        logger.error(f"修改密码错误: {str(e)}")
+        return Response.error("服务器内部错误", 500)

@@ -8,7 +8,6 @@ import os
 from models import User
 import random
 import string
-import uvicorn
 from utils import crypt_password, get_logger, Config
 
 logger = get_logger(__name__)
@@ -60,6 +59,7 @@ async def init_db():
         logger.info('='*50)
 
 if __name__ == "__main__":
+    import uvicorn
     server = uvicorn.Server(
         config=uvicorn.Config(
             app=create_app(),

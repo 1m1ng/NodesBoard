@@ -61,20 +61,10 @@ async def add_user():
         return Response.error("服务器内部错误", 500)
 
 
-@users_bp.route('/delete', methods=['POST'])
+@users_bp.route('/delete/<int:user_id>', methods=['POST'])
 @admin
-async def delete_user():
+async def delete_user(user_id: int):
     try:
-        data = await request.get_json()
-        if not data:
-            data = await request.form
-            if not data:
-                return Response.error("请求数据错误", 400)
-
-        user_id = data.get('user_id')
-        if not user_id:
-            return Response.error("用户ID不能为空", 400)
-
         user = await User.get_or_none(id=user_id)
         if not user:
             return Response.error("用户不存在", 404)
@@ -87,19 +77,15 @@ async def delete_user():
         return Response.error("服务器内部错误", 500)
 
 
-@users_bp.route('/edit', methods=['POST'])
+@users_bp.route('/edit/<int:user_id>', methods=['POST'])
 @admin
-async def edit_user():
+async def edit_user(user_id: int):
     try:
         data = await request.get_json()
         if not data:
             data = await request.form
             if not data:
                 return Response.error("请求数据错误", 400)
-
-        user_id = data.get('user_id')
-        if not user_id:
-            return Response.error("用户ID不能为空", 400)
         
         user = await User.get_or_none(id=user_id)
         if not user:

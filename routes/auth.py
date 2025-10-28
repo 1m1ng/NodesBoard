@@ -38,7 +38,7 @@ async def login():
                 await cache.delete(f"ip_attempts:{ip}")
 
         user = await User.get_or_none(email=email)
-        if user and decrypt_password(user.password) == password:
+        if user and decrypt_password(user.password) == password and user.is_active:
             # 登录成功，清除失败次数
             await cache.delete(f"ip_attempts:{ip}")
             
@@ -66,6 +66,9 @@ async def login():
 
             await cache.set(f"ip_attempts:{ip}", str(failed_attempts), ex=Config.LOCK_DURATION)
             logger.warning(f"用户 {email} 登录失败，IP: {ip}，失败次数: {failed_attempts}")
+            
+        if user and not user.is_active:
+            return Response.error("用户账户已被禁用", 403)
         return Response.error("邮箱或密码错误", 401)
     except redis.asyncio.RedisError as e:
         logger.error(f"Redis错误: {str(e)}")

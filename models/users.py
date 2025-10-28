@@ -8,6 +8,7 @@ class User(Model):
     password = fields.CharField(max_length=128)
     username = fields.CharField(max_length=50)
     is_admin = fields.BooleanField(default=False)
+    is_active = fields.BooleanField(default=True)
 
     class Meta:
         table = "users"

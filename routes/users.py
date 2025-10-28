@@ -37,6 +37,7 @@ async def add_user():
         if len(password) < 8:
             return Response.error("密码长度不能少于8个字符", 400)
         
+        is_active = data.get('is_active', True)
         is_admin = data.get('is_admin', False)
 
         if '@' not in email:
@@ -50,7 +51,8 @@ async def add_user():
             username=username,
             email=email,
             password=crypt_password(password),
-            is_admin=is_admin
+            is_admin=is_admin,
+            is_active=is_active
         )
         await new_user.save()
         return Response.success("用户添加成功")
@@ -107,6 +109,7 @@ async def edit_user():
         email = data.get('email')
         is_admin = data.get('is_admin')
         password = data.get('password')
+        is_active = data.get('is_active')
 
         if username:
             user.username = username
@@ -116,6 +119,8 @@ async def edit_user():
             user.password = crypt_password(password)
         if is_admin is not None:
             user.is_admin = is_admin
+        if is_active is not None:
+            user.is_active = is_active
 
         await user.save()
         await cache.delete(f"token:{user.email}")
